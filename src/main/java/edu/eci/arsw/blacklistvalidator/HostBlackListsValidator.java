@@ -35,52 +35,59 @@ public class HostBlackListsValidator {
         
         
         LinkedList<Integer> blackListOcurrences=new LinkedList<>();
-        
-        int ocurrencesCount=0;
-        
         HostBlacklistsDataSourceFacade skds=HostBlacklistsDataSourceFacade.getInstance();
-        
         int checkedListsCount=0;
         int servers =skds.getRegisteredServersCount();
-        
         int rango = servers/N;
         
         System.out.println(servers);
         System.out.println(rango);
-        int mas=0;
         int inicio=0,fin=rango;
+        System.out.println(servers%N);
         
-        if(servers-rango>0){
-            mas= N-(servers-rango);
-        }
-        
-        ArrayList<ThreadBlack> as= new ArrayList<ThreadBlack>();
+        ArrayList<ThreadBlack> grupohilos= new ArrayList<ThreadBlack>();
                 
         for (int hilos=0; hilos<N;hilos++){
-            if(mas ==hilos){
-                rango++;
+            if(hilos==N-1){
+                rango+=servers%N;
+                fin=inicio+rango;
             }
-            
-            as.add(new ThreadBlack(inicio, fin, ipaddress));
+//            System.out.println(inicio);
+//            System.out.println(fin);
+            grupohilos.add(new ThreadBlack(inicio, fin, ipaddress));
             inicio=fin;
             fin=inicio+rango;
-            
         }
-      
         
+        for(ThreadBlack i:grupohilos){
+            i.start();
+        }
         
-        for (int i=0;i<skds.getRegisteredServersCount() && ocurrencesCount<BLACK_LIST_ALARM_COUNT;i++){
-            checkedListsCount++;
-            
-            if (skds.isInBlackListServer(i, ipaddress)){
-                
-                blackListOcurrences.add(i);
-                
-                ocurrencesCount++;
+        for(ThreadBlack j:grupohilos){
+            try {
+                j.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(HostBlackListsValidator.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
         
-        if (ocurrencesCount>=BLACK_LIST_ALARM_COUNT){
+        for(ThreadBlack l:grupohilos){
+            blackListOcurrences.addAll(l.getBlackListOcur());
+            checkedListsCount+=l.getChecked();  
+        }
+
+//        for (int i=0;i<skds.getRegisteredServersCount() && ocurrencesCount<BLACK_LIST_ALARM_COUNT;i++){
+//            checkedListsCount++;
+//            
+//            if (skds.isInBlackListServer(i, ipaddress)){
+//                
+//                blackListOcurrences.add(i);
+//                
+//                ocurrencesCount++;
+//            }
+//        }
+        
+        if (blackListOcurrences.size()>=BLACK_LIST_ALARM_COUNT){
             skds.reportAsNotTrustworthy(ipaddress);
         }
         else{
